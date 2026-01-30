@@ -1,0 +1,27 @@
+- name: Flusso Aggiornamento APF e PARMLIB
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: 1. Aggiungi un dataset alla APF List (PROGxx)
+      ibm.ibm_zos_core.zos_lineinfile:
+        src: SYS1.PARMLIB(PROG01)
+        insertafter: EOF
+        line: "  ADD AUTH(LNKLST) DSNAME(MY.NEW.LIBRARY) VOLUME(VOL001)"
+        state: present
+      register: apf_change
+
+    - name: 2. Modifica un parametro in un'altra PARMLIB (es. BPXPRM)
+      ibm.ibm_zos_core.zos_lineinfile:
+        src: SYS1.PARMLIB(BPXPRM00)
+        regexp: 'MAXASSIZE'
+        line: '   MAXASSIZE(2147483647)'
+      register: parm_change
+
+    - name: 3. Attiva le modifiche (Refresh)
+      ibm.ibm_zos_core.zos_operator:
+        cmd: "{{ item }}"
+      loop:
+        - "SET PROG=01"
+        - "SET OMVS=00"
+      when: apf_change.changed or parm_change.changed
