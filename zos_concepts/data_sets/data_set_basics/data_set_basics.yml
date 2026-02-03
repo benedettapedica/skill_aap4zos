@@ -36,29 +36,48 @@
     - ibm.ibm_zos_core
   gather_facts: false
   vars:
-    src: "{{ src | default('') }}"
-    dest: "{{ dest | default('ANSIBLE.DATASET(MEMBER)') }}"
-    remote_src: "{{ remote_src | default(true) }}"
-    file_content: "{{ file_content | default('') }}"
+    parmlib_dataset: "{{ parmlib_dataset | default('SYS1.PARMLIB') }}"
+    parmlib_member: "{{ parmlib_member | default('PROG00') }}"
+    apf_entry: "{{ apf_entry | default('') }}"
+    operation: "{{ operation | default('add') }}"
   environment: "{{ environment_vars }}"
 
   tasks:
-    - name: Copy from content (if provided)
+    - name: Create backup of PARMLIB member
       zos_copy:
-        content: "{{ file_content }}"
-        dest: "{{ dest }}"
-      register: result
-      when: file_content | length > 0
+        src: "{{ parmlib_dataset }}({{ parmlib_member }})"
+        dest: "/tmp/{{ parmlib_member }}.backup"
+        remote_src: true
+      register: backup_result
 
-    - name: Copy from file (if content not provided)
-      zos_copy:
-        src: "{{ src }}"
-        dest: "{{ dest }}"
-        remote_src: "{{ remote_src }}"
-      register: result
-      when: file_content | length == 0
+    - name: Read current PARMLIB content
+      zos_fetch:
+        src: "{{ parmlib_dataset }}({{ parmlib_member }})"
+        dest: "/tmp/{{ parmlib_member }}.txt"
+        flat: true
+      register: fetch_result
 
-    - name: Display copy result
+    - name: Add APF entry to PARMLIB
+      zos_lineinfile:
+        src: "{{ parmlib_dataset }}({{ parmlib_member }})"
+        line: "{{ apf_entry }}"
+        state: present
+      when: operation == 'add'
+      register: add_result
+
+    - name: Remove APF entry from PARMLIB
+      zos_lineinfile:
+        src: "{{ parmlib_dataset }}({{ parmlib_member }})"
+        regexp: "{{ apf_entry }}"
+        state: absent
+      when: operation == 'delete'
+      register: delete_result
+
+    - name: Display result
       debug:
-        msg: "{{ result }}"
-
+        msg:
+          - "Operation: {{ operation }}"
+          - "PARMLIB: {{ parmlib_dataset }}({{ parmlib_member }})"
+          - "Entry: {{ apf_entry }}"
+          - "Backup: /tmp/{{ parmlib_member }}.backup"
+          - "Result: {{ add_result if operation == 'add' else delete_result }}"
