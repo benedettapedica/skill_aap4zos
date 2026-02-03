@@ -39,54 +39,26 @@
     src: "{{ src | default('') }}"
     dest: "{{ dest | default('ANSIBLE.DATASET(MEMBER)') }}"
     remote_src: "{{ remote_src | default(true) }}"
-    content: "{{ content | default('') }}"
-    create_dest: "{{ create_dest | default(false) }}"
+    file_content: "{{ file_content | default('') }}"
   environment: "{{ environment_vars }}"
 
   tasks:
-    - name: Validate parameters
-      assert:
-        that:
-          - (src | length > 0) or (content | length > 0)
-          - dest | length > 0
-        fail_msg: "Must provide either 'src' or 'content', and 'dest' is required"
-
-    - name: Extract dataset name from dest
-      set_fact:
-        dataset_name: "{{ dest.split('(')[0] }}"
-      when: "'(' in dest"
-
-    - name: Create destination dataset if requested
-      zos_data_set:
-        name: "{{ dataset_name }}"
-        type: pds
-        state: present
-        replace: false
-      when: 
-        - create_dest | bool
-        - dataset_name is defined
-      ignore_errors: true
-
-    - name: Copy from content
+    - name: Copy from content (if provided)
       zos_copy:
-        content: "{{ content }}"
+        content: "{{ file_content }}"
         dest: "{{ dest }}"
       register: result
-      when: content | length > 0
+      when: file_content | length > 0
 
-    - name: Copy from file
+    - name: Copy from file (if content not provided)
       zos_copy:
         src: "{{ src }}"
         dest: "{{ dest }}"
         remote_src: "{{ remote_src }}"
       register: result
-      when: 
-        - content | length == 0
-        - src | length > 0
+      when: file_content | length == 0
 
-    - name: Display result
+    - name: Display copy result
       debug:
-        msg: 
-          - "Copy completed successfully"
-          - "Destination: {{ dest }}"
-          - "Changed: {{ result.changed }}"
+        msg: "{{ result }}"
+
