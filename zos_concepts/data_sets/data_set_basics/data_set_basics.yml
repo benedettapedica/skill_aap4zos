@@ -30,145 +30,25 @@
 #   system_name - this is the system name that will be used during this example,
 #                 determined by executing `uname -n` on the target.
 ###############################################################################
-
 ---
-
 - hosts: zos_host
   collections:
     - ibm.ibm_zos_core
   gather_facts: false
   vars:
-    tgt_tmp_dir: "/tmp"
-    data_set_name: "IBMUSER.BASICS.SEQ"
-    pds_name: "IBMUSER.BASICS.PDS"
+    src: "{{ src | default('/tmp/default.txt') }}"
+    dest: "{{ dest | default('ANSIBLE.DATASET(MEMBER)') }}"
+    remote_src: "{{ remote_src | default(true) }}"
   environment: "{{ environment_vars }}"
 
   tasks:
-
-    ############################################################################
-    # Modules zos_copy, zos_data_set, zos_fetch
-    ############################################################################
-    # +-------------------------------------------------------------------------
-    # | 1. Create a sequential data set
-    # | 2. Create a USS file and populate it with some data
-    # | 3. Copy the USS file to the sequential data set
-    # | 4. Create a PDS and a member within the PDS
-    # | 5. Copy the sequential data set to the PDS member
-    # | 6. Create a new PDS, replacing the existing one
-    # | 7. Delete all data sets that were created during playbook execution
-    # +-------------------------------------------------------------------------
-
-    - name: Create a sequential data set
-      zos_data_set:
-        name: "{{ data_set_name }}"
-        type: seq
-        state: present
-        replace: true
-        format: fb
-        record_length: 100
-        size: 5M
-      register: result
-
-    - name: Response for data set creation
-      debug:
-        msg: "{{ result }}"
-
-    - name: Remove old {{ tgt_tmp_dir }}/HELLO if it exists, for idempotency.
-      file:
-        path: "{{ tgt_tmp_dir }}/HELLO"
-        state: absent
-      register: result
-
-    - name: Response for USS file deletion.
-      debug:
-        msg: "{{ result }}"
-
-    - name: Copy HELLO.jcl from project to USS file.
+    - name: Copy content to z/OS dataset
       zos_copy:
-        src: "{{ playbook_dir }}/files/HELLO.jcl"
-        dest: "{{ tgt_tmp_dir }}/HELLO"
+        src: "{{ src }}"
+        dest: "{{ dest }}"
+        remote_src: "{{ remote_src }}"
       register: result
 
-    - name: Response for populating USS file {{ tgt_tmp_dir }}/HELLO
-        on target {{ inventory_hostname }}
+    - name: Display copy result
       debug:
         msg: "{{ result }}"
-
-    - name: Copy the USS file to the sequential data set.
-      zos_copy:
-        src: "{{ tgt_tmp_dir }}/HELLO"
-        dest: "{{ data_set_name }}"
-        remote_src: true
-      register: result
-
-    - name: Response for copying USS file to data set
-      debug:
-        msg: "{{ result }}"
-
-    - name: Create a PDS
-      zos_data_set:
-        name: "{{ pds_name }}"
-        type: pds
-        size: 5M
-        format: fba
-        record_length: 100
-      register: result
-
-    - name: Response for creating the PDS
-      debug:
-        msg: "{{ result }}"
-
-    - name: Remove the target PDS member if it exists, for idempotency.
-      zos_data_set:
-        name: "{{ pds_name }}(HELLO)"
-        type: MEMBER
-        state: absent
-      register: result
-
-    - name: Response for creating the PDS member
-      debug:
-        msg: "{{ result }}"
-
-    - name: Copy the sequential data set to PDS member
-      zos_copy:
-        src: "{{ data_set_name }}"
-        dest: "{{ pds_name }}(HELLO)"
-        remote_src: true
-      register: result
-
-    - name: Response for copying {{ data_set_name }} to {{ pds_name }}(HELLO)
-      debug:
-        msg: "{{ result }}"
-
-    - name: Delete the data sets
-      zos_data_set:
-        batch:
-          - name: "{{ data_set_name }}"
-            state: absent
-          - name: "{{ pds_name }}"
-            state: absent
-      register: result
-
-    - name: Response for deleting the data sets
-      debug:
-        msg: "{{ result }}"
-
-    - name: Clean up {{ tgt_tmp_dir }}
-      file:
-        path: "{{ tgt_tmp_dir }}/HELLO"
-        state: absent
-
-    - name: List tasks this playbook completed.
-      debug:
-        msg:
-          - "#########################################################################"
-          - "z/OS modules used: zos_copy, zos_data_set, zos_fetch"
-          - "-------------------------------------------------------------------------"
-          - "1. Create a sequential data set"
-          - "2. Create a USS file and populate it with some data"
-          - "3. Copy the USS file to the sequential data set"
-          - "4. Create a PDS and a member within the PDS"
-          - "5. Copy the sequential data set to the PDS member"
-          - "6. Create a new PDS, replacing the existing one"
-          - "7. Delete all data sets that were created during playbook execution"
-          - "#########################################################################"
