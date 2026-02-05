@@ -31,44 +31,36 @@
 #                 determined by executing `uname -n` on the target.
 ###############################################################################
 ---
-- hosts: zos_host
-  collections:
-    - ibm.ibm_zos_core
-  gather_facts: false
-  vars:
-    parmlib_dataset: "{{ parmlib_dataset | default('SYS1.PARMLIB') }}"
-    parmlib_member: "{{ parmlib_member | default('PROG00') }}"
-    apf_entry: "{{ apf_entry | default('') }}"
-    operation: "{{ operation | default('add') }}"
-  environment: "{{ environment_vars }}"
+- name: Safe PARMLIB Update
+  hosts: zos_nodes
+  collections: [ibm.ibm_zos_core]
 
   tasks:
-    - name: Create backup of PARMLIB member
-      zos_copy:
-        src: "{{ parmlib_dataset }}({{ parmlib_member }})"
-        dest: "/tmp/{{ parmlib_member }}.backup"
-        remote_src: true
-
-    - name: Add APF entry to PARMLIB
-      zos_lineinfile:
-        src: "{{ parmlib_dataset }}({{ parmlib_member }})"
-        line: "{{ apf_entry }}"
+    - name: 1. Create a Temporary Staging Dataset
+      zos_data_set:
+        name: "{{ ansible_user }}.TEMP.PARMLIB"
+        type: PDS
+        record_format: FB
+        record_length: 80
         state: present
-      when: operation == 'add'
-      register: add_result
 
-    - name: Remove APF entry from PARMLIB
-      zos_lineinfile:
-        src: "{{ parmlib_dataset }}({{ parmlib_member }})"
-        regexp: "{{ apf_entry }}"
-        state: absent
-      when: operation == 'delete'
-      register: delete_result
+    - name: 2. Copy content to Staging (Test)
+      zos_copy:
+        content: "/* Test Content */\nAPF ADD DSNAME(SYS1.TEST) SMS"
+        dest: "{{ ansible_user }}.TEMP.PARMLIB(TESTMEM)"
 
-    - name: Display result
+    - name: 3. Verify Staging Copy
       debug:
-        msg:
-          - "Operation: {{ operation }}"
-          - "PARMLIB: {{ parmlib_dataset }}({{ parmlib_member }})"
-          - "Entry: {{ apf_entry }}"
-          - "Backup: /tmp/{{ parmlib_member }}.backup"
+        msg: "Copia nel dataset temporaneo riuscita. Ora procedo alla PARMLIB reale."
+
+    - name: 4. Final Copy to SYS1.PARMLIB
+      zos_copy:
+        src: "{{ ansible_user }}.TEMP.PARMLIB(TESTMEM)"
+        dest: "SYS1.PARMLIB(TESTMEM)"
+        remote_src: true
+      register: final_copy
+
+    - name: 5. Cleanup
+      zos_data_set:
+        name: "{{ ansible_user }}.TEMP.PARMLIB"
+        state: absent
