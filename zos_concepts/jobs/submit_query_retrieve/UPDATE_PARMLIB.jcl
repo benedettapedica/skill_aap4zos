@@ -5,7 +5,6 @@
 //SYSUT2   DD DISP=SHR,DSN=SYS1.PARMLIB
 //SYSIN    DD *
 ./ CHANGE NAME=BPXPRM01
-/* Riga aggiunta tramite Ansible */
 MAXPROCUSER(2000)
 ./ ENDUP
 /*
