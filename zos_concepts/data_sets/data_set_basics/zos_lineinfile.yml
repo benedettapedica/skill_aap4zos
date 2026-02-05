@@ -1,0 +1,25 @@
+---
+- name: Aggiornamento Chirurugico Dataset z/OS
+  hosts: zos_host
+  gather_facts: false
+  # Richiama le variabili d'ambiente che hai già configurato nell'host
+  environment: "{{ environment_vars }}"
+
+  tasks:
+    - name: Ricerca e modifica riga
+      ibm.ibm_zos_core.zos_lineinfile:
+        src: "{{ dataset_dest }}"     # Passato da Survey o Extra Var
+        regexp: "{{ regex_target }}"   # Passato da Survey o Extra Var
+        line: "{{ new_content }}"      # Passato da Survey o Extra Var
+        state: present
+        # Opzionale: assicura che il dataset sia trattato come EBCDIC
+        encoding:
+          from: ISO8859-1
+          to: IBM-037
+      register: line_result
+
+    - name: Report Finale
+      ansible.builtin.debug:
+        msg: 
+          - "Stato modifica: {{ 'Effettuata' if line_result.changed else 'Nessun cambiamento necessario' }}"
+          - "Dataset: {{ dataset_dest }}"
