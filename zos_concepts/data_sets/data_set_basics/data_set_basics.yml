@@ -32,8 +32,8 @@
 ###############################################################################
 ---
 - name: Safe PARMLIB Update
-  hosts: zos_nodes
-  collections: [ibm.ibm_zos_core]
+  hosts: zos_host
+  collections: ibm.ibm_zos_core
 
   tasks:
     - name: 1. Create a Temporary Staging Dataset
