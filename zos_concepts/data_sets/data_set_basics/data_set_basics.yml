@@ -48,14 +48,6 @@
         src: "{{ parmlib_dataset }}({{ parmlib_member }})"
         dest: "/tmp/{{ parmlib_member }}.backup"
         remote_src: true
-      register: backup_result
-
-    - name: Read current PARMLIB content
-      zos_fetch:
-        src: "{{ parmlib_dataset }}({{ parmlib_member }})"
-        dest: "/tmp/{{ parmlib_member }}.txt"
-        flat: true
-      register: fetch_result
 
     - name: Add APF entry to PARMLIB
       zos_lineinfile:
@@ -80,4 +72,3 @@
           - "PARMLIB: {{ parmlib_dataset }}({{ parmlib_member }})"
           - "Entry: {{ apf_entry }}"
           - "Backup: /tmp/{{ parmlib_member }}.backup"
-          - "Result: {{ add_result if operation == 'add' else delete_result }}"
