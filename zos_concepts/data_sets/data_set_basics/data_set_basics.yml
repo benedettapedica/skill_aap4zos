@@ -33,6 +33,7 @@
 ---
 - name: Safe PARMLIB Update
   hosts: zos_host
+  gather_facts: false
   collections: ibm.ibm_zos_core
 
   tasks:
