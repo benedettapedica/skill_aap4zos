@@ -16,6 +16,7 @@
         src: "{{ src }}"
         insertbefore: "{{ regex }}"
         line: "{{ line }}"
+        force: true 
       # La correzione: aggiungiamo /python3.11 al PYTHONPATH solo per questo task
       environment: "{{ environment_vars | combine({'PYTHONPATH': environment_vars.ZOAU_HOME + '/lib/python3.11:' + environment_vars.get('PYTHONPATH', '')}) }}"
       when: operation == "INSERT_BEFORE"
@@ -26,6 +27,7 @@
         src: "{{ src }}"
         insertafter: "{{ regex }}"
         line: "{{ line }}"
+        force: true 
       # Applichiamo la stessa correzione anche qui
       environment: "{{ environment_vars | combine({'PYTHONPATH': environment_vars.ZOAU_HOME + '/lib/python3.11:' + environment_vars.get('PYTHONPATH', '')}) }}"
       when: operation == "INSERT_AFTER"
