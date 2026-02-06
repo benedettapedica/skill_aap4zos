@@ -1,37 +1,40 @@
 ---
-- name: Add a specific line in a DATA_SET.
+- name: Add a specific line in a DATA_SET
   hosts: zos_host
   gather_facts: false
-  vars:
-    operation: "INSERT_BEFORE"
-    src: ""
-    regex: ""
-    line: ""
+  
+  # Utilizziamo le tue variabili d'ambiente originali
   environment: "{{ environment_vars }}"
+
   tasks:
+    - name: Debug Inputs
+      ansible.builtin.debug:
+        msg: "Operazione: {{ operation }}, Dataset: {{ src }}, Regex: {{ regex }}"
 
     - name: Insert before line in file
       ibm.ibm_zos_core.zos_lineinfile:
-        src: '{{ src }}'
-        insertbefore: '{{ regex }}'
-        line: '{{ line }}'
+        src: "{{ src }}"
+        insertbefore: "{{ regex }}"
+        line: "{{ line }}"
+      # La correzione: aggiungiamo /python3.11 al PYTHONPATH solo per questo task
+      environment: "{{ environment_vars | combine({'PYTHONPATH': environment_vars.ZOAU_HOME + '/lib/python3.11:' + environment_vars.get('PYTHONPATH', '')}) }}"
       when: operation == "INSERT_BEFORE"
-      register: inline_change
+      register: inline_change_before
 
     - name: Insert after line in file
       ibm.ibm_zos_core.zos_lineinfile:
-        src: '{{ src }}'
-        insertafter: '{{ regex }}'
-        line: '{{ line }}'
+        src: "{{ src }}"
+        insertafter: "{{ regex }}"
+        line: "{{ line }}"
+      # Applichiamo la stessa correzione anche qui
+      environment: "{{ environment_vars | combine({'PYTHONPATH': environment_vars.ZOAU_HOME + '/lib/python3.11:' + environment_vars.get('PYTHONPATH', '')}) }}"
       when: operation == "INSERT_AFTER"
-      register: inline_change
+      register: inline_change_after
 
-
-    - name: Set fact with results from job submission.
+    - name: Consolidate Results
       ansible.builtin.set_fact:
-        inline_results: "{{ inline_change }}"
+        inline_results: "{{ inline_change_before if operation == 'INSERT_BEFORE' else inline_change_after }}"
 
     - name: Print results
       ansible.builtin.debug:
         var: inline_results
-
