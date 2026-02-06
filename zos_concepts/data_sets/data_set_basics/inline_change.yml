@@ -1,0 +1,35 @@
+---
+- name: Change a specific line is in a USS file or data set, or replace an existing line with a back-referenced regular expression.
+  hosts: zos_host
+  gather_facts: false
+  vars:
+    location: "USS"
+    path: "/tmp/ansible/jcl"
+    file: "{{ jcl | default('HELLO.jcl') }}"
+    regex: ""
+    line: ""
+  environment: "{{ environment_vars }}"
+  tasks:
+
+    - name: Set path variable
+      ansible.builtin.set_fact:
+        final_path: >-
+          {{
+            path + '(' + file.rstrip('.jcl') + ')' if location == 'DATA_SET'
+            else path.rstrip('/') + '/' + file.rstrip('.jcl') + '.jcl'
+          }}
+
+    - name: Change lines in file
+      ibm.ibm_zos_core.zos_lineinfile:
+        src: "{{ final_path }}"
+        regexp: '{{ regex }}'
+        line: "{{ line }}"
+      register: inline_change
+
+    - name: Set fact with results from job submission.
+      ansible.builtin.set_fact:
+        inline_results: "{{ inline_change }}"
+
+    - name: Print results
+      ansible.builtin.debug:
+        var: inline_results
