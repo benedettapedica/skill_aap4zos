@@ -7,11 +7,10 @@
   tasks:
     - name: Modifica riga
       ibm.ibm_zos_core.zos_lineinfile:
-        src: "{{ dataset_dest | upper }}" # Forza il maiuscolo per i dataset
+        src: "{{ dataset_dest | upper }}" 
         regexp: "{{ regex_target }}"
         line: "{{ new_content }}"
         state: present
-        # Rimosso encoding: lasciamo fare a _BPXK_AUTOCVT=ON
       register: line_result
 
     - name: Debug in caso di errore
