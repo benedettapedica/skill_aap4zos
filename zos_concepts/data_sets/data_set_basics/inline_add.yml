@@ -1,0 +1,37 @@
+---
+- name: Add a specific line in a DATA_SET.
+  hosts: zos_host
+  gather_facts: false
+  vars:
+    operation: "INSERT_BEFORE"
+    src: ""
+    regex: ""
+    line: ""
+  environment: "{{ environment_vars }}"
+  tasks:
+
+    - name: Insert before line in file
+      ibm.ibm_zos_core.zos_lineinfile:
+        src: '{{ src }}'
+        insertbefore: '{{ regex }}'
+        line: '{{ line }}'
+      when: operation == "INSERT_BEFORE"
+      register: inline_change
+
+    - name: Insert after line in file
+      ibm.ibm_zos_core.zos_lineinfile:
+        src: '{{ src }}'
+        insertafter: '{{ regex }}'
+        line: '{{ line }}'
+      when: operation == "INSERT_AFTER"
+      register: inline_change
+
+
+    - name: Set fact with results from job submission.
+      ansible.builtin.set_fact:
+        inline_results: "{{ inline_change }}"
+
+    - name: Print results
+      ansible.builtin.debug:
+        var: inline_results
+
