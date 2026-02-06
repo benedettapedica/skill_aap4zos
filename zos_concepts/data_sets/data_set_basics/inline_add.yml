@@ -21,6 +21,10 @@
       environment: "{{ environment_vars | combine({'PYTHONPATH': environment_vars.ZOAU_HOME + '/lib/python3.11:' + environment_vars.get('PYTHONPATH', '')}) }}"
       when: operation == "INSERT_BEFORE"
       register: inline_change_before
+      failed_when: 
+        - inline_change.rc is defined
+        - inline_change.rc != 0
+        - '"changed" not in inline_change.stdout'
 
     - name: Insert after line in file
       ibm.ibm_zos_core.zos_lineinfile:
@@ -32,6 +36,10 @@
       environment: "{{ environment_vars | combine({'PYTHONPATH': environment_vars.ZOAU_HOME + '/lib/python3.11:' + environment_vars.get('PYTHONPATH', '')}) }}"
       when: operation == "INSERT_AFTER"
       register: inline_change_after
+      failed_when: 
+        - inline_change.rc is defined
+        - inline_change.rc != 0
+        - '"changed" not in inline_change.stdout'
 
     - name: Consolidate Results
       ansible.builtin.set_fact:
