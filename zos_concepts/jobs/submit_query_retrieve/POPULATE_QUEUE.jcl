@@ -8,7 +8,7 @@
   LOAD QUEUE(DEMO.SORGENTE.QUEUE) DDNAME(MSGS)
 /*
 //MSGS     DD *
-<pacs.008><MsgId>TXN_2026_001</MsgId><Amt Ccy="EUR">1250.00</Amt><Dbtr>ACC_01</Dbtr></pacs.008>
-{"txId":"AUTH_99B","type":"PAYMENT","amt":45.50,"merchant":"RETAIL_SHOP_01"}
-ISO8583|MT:0200|PAN:4532XXXXXXXX1234|AMT:000000015000|CUR:978|LOC:TERM_ID_42
+<pacs><id>TXN001</id><amt>1250</amt><ccy>EUR</ccy></pacs>
+{"id":"AUTH99","typ":"PAY","amt":45.5,"mrc":"SHOP01"}
+ISO|MT0200|PAN4532X1234|AMT15000|CUR978|LOC42
 /*
