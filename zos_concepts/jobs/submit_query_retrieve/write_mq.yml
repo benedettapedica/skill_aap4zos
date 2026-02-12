@@ -1,0 +1,15 @@
+- name: Scrittura in coda MQ senza STEPLIB
+  hosts: all
+  tasks:
+    - name: Tenta di scrivere sulla coda DEMO
+      ibm.ibm_zos_core.zos_mvs_raw:
+        program_name: CSQUTIL
+        parm: "CSQ9"
+        dds:
+          - dd_name: SYSPRINT
+            status: scrub
+          - dd_name: SYSIN
+            content: |
+              LOAD DDNAME(DATI) QUEUE('DEMO.SORGENTE.QUEUE')
+          - dd_name: DATI
+            content: "Messaggio di test da Ansible"
