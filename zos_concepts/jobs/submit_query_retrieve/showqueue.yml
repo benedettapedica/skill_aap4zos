@@ -1,0 +1,19 @@
+- name: Tentativo MQ senza STEPLIB (LINKLIST)
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Submit JCL MQREAD
+      ibm.ibm_zos_core.zos_job_submit:
+        src: |
+          //MQREAD   JOB (ACCT),'READ MSG',CLASS=A,MSGCLASS=X
+          //STEP1    EXEC PGM=CSQUTIL,PARM='CSQ9'
+          //SYSPRINT DD SYSOUT=*
+          //SYSIN    DD *
+           COPY QUEUE('DEMO.SORGENTE.QUEUE') DDNAME(SYSPRINT)
+          /*
+        type: inline
+      register: job_output
+
+    - name: Risultato
+      debug:
+        msg: "Job ID: {{ job_output.jobs[0].job_id }} - RC: {{ job_output.jobs[0].ret_code.msg }}"
