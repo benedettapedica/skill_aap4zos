@@ -5,7 +5,5 @@
   LOAD QUEUE(DEMO.SORGENTE.QUEUE) DDNAME(DATAIN) FORMAT(1)
 /*
 //DATAIN   DD *
-<pacs><id>TXN001</id><amt>1250</amt><ccy>EUR</ccy></pacs>
-{"id":"AUTH99","typ":"PAY","amt":45.5,"mrc":"SHOP01"}
-ISO|MT0200|PAN4532X1234|AMT15000|CUR978|LOC42
+Message test 1
 /*
