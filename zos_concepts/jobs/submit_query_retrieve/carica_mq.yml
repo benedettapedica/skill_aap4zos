@@ -1,0 +1,25 @@
+---
+- name: Carica messaggi in MQ via Python
+  hosts: zos_host
+  tasks:
+    - name: Esegue lo script Python per iniettare i messaggi
+      shell: |
+        python3 << 'EOF'
+        import os
+        qmgr = 'CSQ9'
+        queue = 'DEMO.SORGENTE.QUEUE'
+        msgs = [
+            '<pacs><id>TXN001</id><amt>1250</amt><ccy>EUR</ccy></pacs>',
+            '{"id":"AUTH99","typ":"PAY","amt":45.5,"mrc":"SHOP01"}',
+            'ISO|MT0200|PAN4532X1234|AMT15000|CUR978|LOC42'
+        ]
+        
+        # Nota: il percorso di csqUDT0 potrebbe variare in base alla versione
+        for m in msgs:
+            os.system(f'echo "{m}" | /usr/lpp/mqm/V9R3M0/bin/csqUDT0 -m {qmgr} -q {queue}')
+        EOF
+      register: python_out
+
+    - name: Mostra risultato
+      debug:
+        msg: "{{ python_out.stdout_lines }}"
