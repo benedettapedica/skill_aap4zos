@@ -1,15 +1,23 @@
-- name: Scrittura in coda MQ senza STEPLIB
+- name: MQ Put via JCL (Bypass encoding issues)
   hosts: all
+  gather_facts: false
   tasks:
-    - name: Tenta di scrivere sulla coda DEMO
-      ibm.ibm_zos_core.zos_mvs_raw:
-        program_name: CSQUTIL
-        parm: "CSQ9"
-        dds:
-          - dd_name: SYSPRINT
-            status: scrub
-          - dd_name: SYSIN
-            content: |
-              LOAD DDNAME(DATI) QUEUE('DEMO.SORGENTE.QUEUE')
-          - dd_name: DATI
-            content: "Messaggio di test da Ansible"
+    - name: Submit JCL to write MQ message
+      ibm.ibm_zos_core.zos_job_submit:
+        src: |
+          //MQPUT    JOB (ACCT),'PUT',CLASS=A,MSGCLASS=X
+          //STEP1    EXEC PGM=CSQUTIL,PARM='CSQ9'
+          //* Se fallisce qui, il sistema ci dirà dove manca il programma
+          //SYSPRINT DD SYSOUT=*
+          //SYSIN    DD *
+            LOAD DDNAME(MSG) QUEUE('DEMO.SORGENTE.QUEUE')
+          /*
+          //MSG      DD *
+          Testo del messaggio inviato via Ansible Job Submit
+          /*
+        type: inline
+      register: job_output
+
+    - name: Mostra il Job ID
+      debug:
+        msg: "Il Job è stato sottomesso: {{ job_output.jobs[0].job_id }}"
