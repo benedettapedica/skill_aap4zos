@@ -5,7 +5,7 @@
   tasks:
     - name: Issue START QMGR operator command
       zos_operator:
-        cmd: "+CSQ1 START QMGR"
+        cmd: "%CSQ1 START QMGR"
       register: qmgr_start_output
 
     - name: Display Output
