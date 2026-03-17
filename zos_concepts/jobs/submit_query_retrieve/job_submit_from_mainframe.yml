@@ -17,8 +17,8 @@
       ansible.builtin.debug:
         msg:
           - "✓ JCL copied from {{ source_library | default('IBMUSER.JCL') }}({{ source_member | default('DEFUSER') }}) to {{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
-          - "⚠️  Source library remains unchanged with original variables"
-          - "⚠️  Target library currently has variables, will be updated with zos_lineinfile"
+          - "Source library remains unchanged with original variables"
+          - "Target library currently has variables, will be updated with zos_lineinfile"
 
     - name: "Step 2: Replace XXXXXXXX with job_name in JCL header"
       ibm.ibm_zos_core.zos_find_replace:
