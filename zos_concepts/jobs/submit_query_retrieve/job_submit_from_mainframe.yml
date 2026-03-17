@@ -7,8 +7,8 @@
   tasks:
     - name: "Step 1: Copy JCL template from source to target library"
       ibm.ibm_zos_core.zos_copy:
-        src: "{{ source_library | default('DEFUSER.JCL') }}({{ source_member | default('ADDUSER') }})"
-        dest: "{{ target_library | default('NEWUSER.JCL') }}({{ target_member | default('ADDUSER') }})"
+        src: "{{ source_library | default('IBMUSER.JCL') }}({{ source_member | default('DEFUSER') }})"
+        dest: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
         remote_src: true
         force: true
       register: copy_template
@@ -16,13 +16,13 @@
     - name: "Confirm: JCL template copied (DEFUSER remains unchanged)"
       ansible.builtin.debug:
         msg:
-          - "✓ JCL copied from {{ source_library | default('DEFUSER.JCL') }}({{ source_member | default('ADDUSER') }}) to {{ target_library | default('NEWUSER.JCL') }}({{ target_member | default('ADDUSER') }})"
+          - "✓ JCL copied from {{ source_library | default('IBMUSER.JCL') }}({{ source_member | default('DEFUSER') }}) to {{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
           - "⚠️  Source library remains unchanged with original variables"
           - "⚠️  Target library currently has variables, will be updated with zos_lineinfile"
 
     - name: "Step 2: Replace XXXXXXXX with job_name in JCL header"
       ibm.ibm_zos_core.zos_lineinfile:
-        src: "{{ target_library | default('NEWUSER.JCL') }}({{ target_member | default('ADDUSER') }})"
+        src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
         regexp: '^//XXXXXXXX '
         line: "//{{ job_name | default(userid) }} JOB (HWSW),'ADDUSER-{{ nome | upper }}',CLASS={{ job_class | default('X') }},MSGCLASS={{ msgclass | default('X') }},REGION=4M,"
         state: present
@@ -30,7 +30,7 @@
 
     - name: "Step 3: Replace $USERID with actual userid in ADDUSER command"
       ibm.ibm_zos_core.zos_lineinfile:
-        src: "{{ target_library | default('NEWUSER.JCL') }}({{ target_member | default('ADDUSER') }})"
+        src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
         regexp: 'ADDUSER NEWUSER'
         line: "ADDUSER {{ userid }}  NAME('{{ nome }} {{ cognome }}')                    -"
         state: present
@@ -38,7 +38,7 @@
 
     - name: "Step 4: Replace $NOME $COGNOME in NAME field (if separate line)"
       ibm.ibm_zos_core.zos_lineinfile:
-        src: "{{ target_library | default('NEWUSER.JCL') }}({{ target_member | default('ADDUSER') }})"
+        src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
         regexp: "NAME\\('\\$NOME \\$COGNOME"
         line: "ADDUSER {{ userid }}  NAME('{{ nome }} {{ cognome }}')                    -"
         state: present
@@ -47,7 +47,7 @@
 
     - name: "Step 5: Replace $CODICEFISCALE with actual codice_fiscale"
       ibm.ibm_zos_core.zos_lineinfile:
-        src: "{{ target_library | default('NEWUSER.JCL') }}({{ target_member | default('ADDUSER') }})"
+        src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
         regexp: "DATA\\('\\$CODICEFISCALE"
         line: "DATA('{{ codice_fiscale }}')  DFLTGRP({{ gruppo }}) CICS(OPIDENT(007))   -"
         state: present
@@ -55,7 +55,7 @@
 
     - name: "Step 6: Replace $GRP with actual gruppo"
       ibm.ibm_zos_core.zos_lineinfile:
-        src: "{{ target_library | default('NEWUSER.JCL') }}({{ target_member | default('ADDUSER') }})"
+        src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
         regexp: "DFLTGRP\\(\\$GRP\\)"
         line: "DATA('{{ codice_fiscale }}')  DFLTGRP({{ gruppo }}) CICS(OPIDENT(007))   -"
         state: present
@@ -64,7 +64,7 @@
 
     - name: "Step 7: Replace $PSW and $OWNER with actual password and owner"
       ibm.ibm_zos_core.zos_lineinfile:
-        src: "{{ target_library | default('NEWUSER.JCL') }}({{ target_member | default('ADDUSER') }})"
+        src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
         regexp: "PASSWORD\\(\\$PSW\\)"
         line: "PASSWORD({{ password }}) OWNER({{ owner }})"
         state: present
@@ -72,7 +72,7 @@
 
     - name: "Step 8: Replace $XX/XX/XX with actual data_revoke in ALTUSER"
       ibm.ibm_zos_core.zos_lineinfile:
-        src: "{{ target_library | default('NEWUSER.JCL') }}({{ target_member | default('ADDUSER') }})"
+        src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
         regexp: "ALTUSER NEWUSER REVOKE"
         line: "ALTUSER {{ userid }} REVOKE({{ data_revoke }})"
         state: present
@@ -89,11 +89,11 @@
           - "✓ Password: $PSW → {{ password }}"
           - "✓ Owner: $OWNER → {{ owner }}"
           - "✓ Revoke Date: $XX/XX/XX → {{ data_revoke }}"
-          - "✓ {{ target_library | default('NEWUSER.JCL') }}({{ target_member | default('ADDUSER') }}) ready to submit"
+          - "✓ {{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }}) ready to submit"
 
     - name: "Step 9: Submit JCL from target library"
       ibm.ibm_zos_core.zos_job_submit:
-        src: "{{ target_library | default('NEWUSER.JCL') }}({{ target_member | default('ADDUSER') }})"
+        src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
         location: DATA_SET
         wait_time_s: 60
       register: job_submit
@@ -120,8 +120,8 @@
           - "=========================================="
           - "JCL Submission Results"
           - "=========================================="
-          - "Source Template: {{ source_library | default('DEFUSER.JCL') }}({{ source_member | default('ADDUSER') }}) [UNCHANGED]"
-          - "Target JCL: {{ target_library | default('NEWUSER.JCL') }}({{ target_member | default('ADDUSER') }}) [UPDATED & SUBMITTED]"
+          - "Source Template: {{ source_library | default('IBMUSER.JCL') }}({{ source_member | default('DEFUSER') }}) [UNCHANGED]"
+          - "Target JCL: {{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }}) [UPDATED & SUBMITTED]"
           - "User Created: {{ userid }}"
           - "Job Name: {{ submit_job_name }}"
           - "Subsystem: {{ submit_job_subsystem }}"
@@ -148,8 +148,8 @@
           - "=========================================="
           - "Process Complete"
           - "=========================================="
-          - "✓ {{ source_library | default('DEFUSER.JCL') }}({{ source_member | default('ADDUSER') }}) - Original template preserved"
-          - "✓ {{ target_library | default('NEWUSER.JCL') }}({{ target_member | default('ADDUSER') }}) - Updated with user: {{ userid }}"
+          - "✓ {{ source_library | default('IBMUSER.JCL') }}({{ source_member | default('DEFUSER') }}) - Original template preserved"
+          - "✓ {{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }}) - Updated with user: {{ userid }}"
           - "✓ Job {{ submit_job_id }} submitted with RC: {{ submit_job_ret_code }}"
           - "✓ All parameters collected from user and applied successfully"
           - "=========================================="
