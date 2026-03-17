@@ -21,77 +21,83 @@
           - "⚠️  Target library currently has variables, will be updated with zos_lineinfile"
 
     - name: "Step 2: Replace XXXXXXXX with job_name in JCL header"
-      ibm.ibm_zos_core.zos_lineinfile:
+      ibm.ibm_zos_core.zos_find_replace:
         src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
-        regexp: '^//XXXXXXXX '
-        line: "//{{ job_name | default(userid) }} JOB (HWSW),'ADDUSER-{{ nome | upper }}',CLASS={{ job_class | default('X') }},MSGCLASS={{ msgclass | default('X') }},REGION=4M,"
-        state: present
+        find: "XXXXXXXX"
+        replace: "{{ job_name | default(userid) }}"
       register: replace_jobname
 
-    - name: "Step 3: Replace $USERID with actual userid in ADDUSER command"
-      ibm.ibm_zos_core.zos_lineinfile:
+    - name: "Step 3: Replace $NEWUSER with actual userid"
+      ibm.ibm_zos_core.zos_find_replace:
         src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
-        regexp: 'ADDUSER NEWUSER'
-        line: "ADDUSER {{ userid }}  NAME('{{ nome }} {{ cognome }}')                    -"
-        state: present
-      register: replace_adduser
+        find: "$NEWUSER"
+        replace: "{{ userid }}"
+      register: replace_userid
 
-    - name: "Step 4: Replace $NOME $COGNOME in NAME field (if separate line)"
-      ibm.ibm_zos_core.zos_lineinfile:
+    - name: "Step 4: Replace $NOME with actual nome"
+      ibm.ibm_zos_core.zos_find_replace:
         src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
-        regexp: "NAME\\('\\$NOME \\$COGNOME"
-        line: "ADDUSER {{ userid }}  NAME('{{ nome }} {{ cognome }}')                    -"
-        state: present
-      register: replace_name
-      ignore_errors: true
+        find: "$NOME"
+        replace: "{{ nome }}"
+      register: replace_nome
 
-    - name: "Step 5: Replace $CODICEFISCALE with actual codice_fiscale"
-      ibm.ibm_zos_core.zos_lineinfile:
+    - name: "Step 5: Replace $COGNOME with actual cognome"
+      ibm.ibm_zos_core.zos_find_replace:
         src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
-        regexp: "DATA\\('\\$CODICEFISCALE"
-        line: "DATA('{{ codice_fiscale }}')  DFLTGRP({{ gruppo }}) CICS(OPIDENT(007))   -"
-        state: present
+        find: "$COGNOME"
+        replace: "{{ cognome }}"
+      register: replace_cognome
+
+    - name: "Step 6: Replace $CODICEFISCALE with actual codice_fiscale"
+      ibm.ibm_zos_core.zos_find_replace:
+        src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
+        find: "$CODICEFISCALE"
+        replace: "{{ codice_fiscale }}"
       register: replace_cf
 
-    - name: "Step 6: Replace $GRP with actual gruppo"
-      ibm.ibm_zos_core.zos_lineinfile:
+    - name: "Step 7: Replace $GRP with actual gruppo"
+      ibm.ibm_zos_core.zos_find_replace:
         src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
-        regexp: "DFLTGRP\\(\\$GRP\\)"
-        line: "DATA('{{ codice_fiscale }}')  DFLTGRP({{ gruppo }}) CICS(OPIDENT(007))   -"
-        state: present
+        find: "$GRP"
+        replace: "{{ gruppo }}"
       register: replace_grp
-      ignore_errors: true
 
-    - name: "Step 7: Replace $PSW and $OWNER with actual password and owner"
-      ibm.ibm_zos_core.zos_lineinfile:
+    - name: "Step 8: Replace $PSW with actual password"
+      ibm.ibm_zos_core.zos_find_replace:
         src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
-        regexp: "PASSWORD\\(\\$PSW\\)"
-        line: "PASSWORD({{ password }}) OWNER({{ owner }})"
-        state: present
+        find: "$PSW"
+        replace: "{{ password }}"
       register: replace_pwd
 
-    - name: "Step 8: Replace $XX/XX/XX with actual data_revoke in ALTUSER"
-      ibm.ibm_zos_core.zos_lineinfile:
+    - name: "Step 9: Replace $OWNER with actual owner"
+      ibm.ibm_zos_core.zos_find_replace:
         src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
-        regexp: "ALTUSER NEWUSER REVOKE"
-        line: "ALTUSER {{ userid }} REVOKE({{ data_revoke }})"
-        state: present
+        find: "$OWNER"
+        replace: "{{ owner }}"
+      register: replace_owner
+
+    - name: "Step 10: Replace $XX/XX/XX with actual data_revoke"
+      ibm.ibm_zos_core.zos_find_replace:
+        src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
+        find: "$XX/XX/XX"
+        replace: "{{ data_revoke }}"
       register: replace_revoke
 
     - name: "Confirm: All parameters replaced in target library"
       ansible.builtin.debug:
         msg:
           - "✓ Job name: XXXXXXXX → {{ job_name | default(userid) }}"
-          - "✓ User ID: NEWUSER → {{ userid }}"
-          - "✓ Name: $NOME $COGNOME → {{ nome }} {{ cognome }}"
+          - "✓ User ID: $NEWUSER → {{ userid }}"
+          - "✓ Nome: $NOME → {{ nome }}"
+          - "✓ Cognome: $COGNOME → {{ cognome }}"
           - "✓ Codice Fiscale: $CODICEFISCALE → {{ codice_fiscale }}"
           - "✓ Group: $GRP → {{ gruppo }}"
-          - "✓ Password: $PSW → {{ password }}"
+          - "✓ Password: $PSW → [HIDDEN]"
           - "✓ Owner: $OWNER → {{ owner }}"
           - "✓ Revoke Date: $XX/XX/XX → {{ data_revoke }}"
           - "✓ {{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }}) ready to submit"
 
-    - name: "Step 9: Submit JCL from target library"
+    - name: "Step 11: Submit JCL from target library"
       ibm.ibm_zos_core.zos_job_submit:
         src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
         location: DATA_SET
