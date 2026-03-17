@@ -1,0 +1,64 @@
+---
+- name: Prepare JCL from mainframe template with user parameters
+  hosts: zos_host
+  collections:
+    - ibm.ibm_zos_core
+  gather_facts: false
+  environment: "{{ environment_vars }}"
+  
+  tasks:
+    - name: "Step 1: Fetch JCL template from mainframe"
+      zos_fetch:
+        src: "{{ source_library | default('IBMUSER.JCL') }}({{ source_member | default('DEFUSER') }})"
+        dest: "/tmp/jcl_template_{{ userid }}.txt"
+        flat: true
+      register: fetch_result
+
+    - name: "Step 2: Read and modify JCL content"
+      set_fact:
+        modified_jcl: "{{ lookup('file', '/tmp/jcl_template_{{ userid }}.txt') | 
+          replace('XXXXXXXX', job_name | default(userid)) |
+          replace('$NEWUSER', userid) |
+          replace('$NOME', nome) |
+          replace('$COGNOME', cognome) |
+          replace('$CODICEFISCALE', codice_fiscale) |
+          replace('$GRP', gruppo) |
+          replace('$PSW', password) |
+          replace('$OWNER', owner) |
+          replace('$XX/XX/XX', data_revoke) }}"
+
+    - name: "Step 3: Display modified JCL for review"
+      debug:
+        msg: "{{ modified_jcl.split('\n') }}"
+
+    - name: "Step 4: Write modified JCL to USS"
+      zos_copy:
+        content: "{{ modified_jcl }}"
+        dest: "/tmp/{{ userid }}_adduser.jcl"
+        encoding:
+          from: ISO8859-1
+          to: IBM-037
+        force: true
+      register: write_result
+
+    - name: "Step 5: Cleanup template file"
+      file:
+        path: "/tmp/jcl_template_{{ userid }}.txt"
+        state: absent
+      ignore_errors: true
+
+    - name: "Step 6: Display preparation result"
+      debug:
+        msg:
+          - "=========================================="
+          - "JCL Preparation Complete"
+          - "=========================================="
+          - "Source Template: {{ source_library | default('IBMUSER.JCL') }}({{ source_member | default('DEFUSER') }})"
+          - "User: {{ userid }}"
+          - "Prepared JCL Location: /tmp/{{ userid }}_adduser.jcl"
+          - "Status: Ready for submission"
+          - "=========================================="
+          - ""
+          - "Next step: Use job_submit_prepared.yml to submit the job"
+
+# Made with Bob
