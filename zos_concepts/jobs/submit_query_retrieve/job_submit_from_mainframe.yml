@@ -20,68 +20,37 @@
           - "Source library remains unchanged with original variables"
           - "Target library currently has variables, will be updated with zos_lineinfile"
 
-    - name: "Step 2: Replace XXXXXXXX with job_name in JCL header"
-      ibm.ibm_zos_core.zos_find_replace:
+    - name: "Step 2: Read JCL content from target"
+      ibm.ibm_zos_core.zos_fetch:
         src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
-        find: "XXXXXXXX"
-        replace: "{{ job_name | default(userid) }}"
-      register: replace_jobname
+        dest: "/tmp/jcl_temp.txt"
+        flat: true
+      register: fetch_jcl
 
-    - name: "Step 3: Replace $NEWUSER with actual userid"
-      ibm.ibm_zos_core.zos_find_replace:
-        src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
-        find: "$NEWUSER"
-        replace: "{{ userid }}"
-      register: replace_userid
+    - name: "Step 3: Replace all variables in JCL content"
+      ansible.builtin.set_fact:
+        modified_jcl: "{{ lookup('file', '/tmp/jcl_temp.txt') |
+          replace('XXXXXXXX', job_name | default(userid)) |
+          replace('$NEWUSER', userid) |
+          replace('$NOME', nome) |
+          replace('$COGNOME', cognome) |
+          replace('$CODICEFISCALE', codice_fiscale) |
+          replace('$GRP', gruppo) |
+          replace('$PSW', password) |
+          replace('$OWNER', owner) |
+          replace('$XX/XX/XX', data_revoke) }}"
 
-    - name: "Step 4: Replace $NOME with actual nome"
-      ibm.ibm_zos_core.zos_find_replace:
-        src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
-        find: "$NOME"
-        replace: "{{ nome }}"
-      register: replace_nome
+    - name: "Step 4: Write modified JCL back to target"
+      ibm.ibm_zos_core.zos_copy:
+        content: "{{ modified_jcl }}"
+        dest: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
+        force: true
+      register: write_jcl
 
-    - name: "Step 5: Replace $COGNOME with actual cognome"
-      ibm.ibm_zos_core.zos_find_replace:
-        src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
-        find: "$COGNOME"
-        replace: "{{ cognome }}"
-      register: replace_cognome
-
-    - name: "Step 6: Replace $CODICEFISCALE with actual codice_fiscale"
-      ibm.ibm_zos_core.zos_find_replace:
-        src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
-        find: "$CODICEFISCALE"
-        replace: "{{ codice_fiscale }}"
-      register: replace_cf
-
-    - name: "Step 7: Replace $GRP with actual gruppo"
-      ibm.ibm_zos_core.zos_find_replace:
-        src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
-        find: "$GRP"
-        replace: "{{ gruppo }}"
-      register: replace_grp
-
-    - name: "Step 8: Replace $PSW with actual password"
-      ibm.ibm_zos_core.zos_find_replace:
-        src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
-        find: "$PSW"
-        replace: "{{ password }}"
-      register: replace_pwd
-
-    - name: "Step 9: Replace $OWNER with actual owner"
-      ibm.ibm_zos_core.zos_find_replace:
-        src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
-        find: "$OWNER"
-        replace: "{{ owner }}"
-      register: replace_owner
-
-    - name: "Step 10: Replace $XX/XX/XX with actual data_revoke"
-      ibm.ibm_zos_core.zos_find_replace:
-        src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
-        find: "$XX/XX/XX"
-        replace: "{{ data_revoke }}"
-      register: replace_revoke
+    - name: "Step 5: Cleanup temporary file"
+      ansible.builtin.file:
+        path: "/tmp/jcl_temp.txt"
+        state: absent
 
     - name: "Confirm: All parameters replaced in target library"
       ansible.builtin.debug:
