@@ -70,7 +70,7 @@
       ibm.ibm_zos_core.zos_job_submit:
         src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
         location: DATA_SET
-        wait_time_s: 60
+        wait_time_s: 300
       register: job_submit
       ignore_errors: true
 
