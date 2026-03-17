@@ -31,13 +31,10 @@
       debug:
         msg: "{{ modified_jcl.split('\n') }}"
 
-    - name: "Step 4: Write modified JCL to USS"
+    - name: "Step 4: Write modified JCL back to mainframe"
       zos_copy:
         content: "{{ modified_jcl }}"
-        dest: "/tmp/{{ userid }}_adduser.jcl"
-        encoding:
-          from: ISO8859-1
-          to: IBM-037
+        dest: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
         force: true
       register: write_result
 
@@ -54,8 +51,8 @@
           - "JCL Preparation Complete"
           - "=========================================="
           - "Source Template: {{ source_library | default('IBMUSER.JCL') }}({{ source_member | default('DEFUSER') }})"
+          - "Target JCL: {{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
           - "User: {{ userid }}"
-          - "Prepared JCL Location: /tmp/{{ userid }}_adduser.jcl"
           - "Status: Ready for submission"
           - "=========================================="
           - ""
