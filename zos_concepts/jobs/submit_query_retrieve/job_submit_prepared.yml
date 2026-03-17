@@ -1,0 +1,93 @@
+---
+- name: Submit prepared JCL job
+  hosts: zos_host
+  collections:
+    - ibm.ibm_zos_core
+  gather_facts: false
+  environment: "{{ environment_vars }}"
+  
+  tasks:
+    - name: "Step 1: Verify JCL file exists"
+      stat:
+        path: "/tmp/{{ userid }}_adduser.jcl"
+      register: jcl_file
+
+    - name: "Step 2: Fail if JCL not found"
+      fail:
+        msg: "JCL file /tmp/{{ userid }}_adduser.jcl not found. Run job_prepare_from_mainframe.yml first."
+      when: not jcl_file.stat.exists
+
+    - name: "Step 3: Display JCL content before submission"
+      command: "cat /tmp/{{ userid }}_adduser.jcl"
+      register: jcl_content
+
+    - name: "Step 4: Show JCL to be submitted"
+      debug:
+        msg: "{{ jcl_content.stdout_lines }}"
+
+    - name: "Step 5: Submit JCL job"
+      zos_job_submit:
+        src: "/tmp/{{ userid }}_adduser.jcl"
+        location: USS
+        wait_time_s: 60
+      register: job_submit
+      ignore_errors: true
+
+    - name: "Step 6: Extract job information"
+      set_fact:
+        job_id: "{{ job_submit.jobs[0].job_id | default('N/A') }}"
+        job_name: "{{ job_submit.jobs[0].job_name | default('N/A') }}"
+        job_status: "{{ job_submit.jobs[0].ret_code.msg | default('UNKNOWN') }}"
+        job_rc: "{{ job_submit.jobs[0].ret_code.code | default('N/A') }}"
+
+    - name: "Step 7: Display job submission result"
+      debug:
+        msg:
+          - "=========================================="
+          - "Job Submission Results"
+          - "=========================================="
+          - "User: {{ userid }}"
+          - "Job Name: {{ job_name }}"
+          - "Job ID: {{ job_id }}"
+          - "Status: {{ job_status }}"
+          - "Return Code: {{ job_rc }}"
+          - "=========================================="
+
+    - block:
+      - name: "Step 8: Get job output for job ID {{ job_id }}"
+        zos_job_output:
+          job_id: "{{ job_id }}"
+        register: job_output_result
+        when: job_id != 'N/A'
+
+      - name: "Step 9: Display job output"
+        debug:
+          msg: "{{ job_output_result }}"
+        when: job_id != 'N/A'
+
+      rescue:
+        - name: "Handle job output error"
+          debug:
+            msg: 
+              - "Job {{ job_id }} may still be running or output not available yet."
+              - "Check SDSF or z/OSMF for job status and output."
+              - "Use command: OUTPUT {{ job_id }} in TSO"
+
+    - name: "Step 10: Cleanup JCL file"
+      file:
+        path: "/tmp/{{ userid }}_adduser.jcl"
+        state: absent
+      ignore_errors: true
+      when: cleanup | default(true)
+
+    - name: "Step 11: Final summary"
+      debug:
+        msg:
+          - "=========================================="
+          - "Process Complete"
+          - "=========================================="
+          - "Job {{ job_id }} submitted for user {{ userid }}"
+          - "Check SDSF for final status if job is still running"
+          - "=========================================="
+
+# Made with Bob
