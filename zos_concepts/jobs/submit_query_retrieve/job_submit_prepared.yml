@@ -7,28 +7,10 @@
   environment: "{{ environment_vars }}"
   
   tasks:
-    - name: "Step 1: Verify JCL file exists"
-      stat:
-        path: "/tmp/{{ userid }}_adduser.jcl"
-      register: jcl_file
-
-    - name: "Step 2: Fail if JCL not found"
-      fail:
-        msg: "JCL file /tmp/{{ userid }}_adduser.jcl not found. Run job_prepare_from_mainframe.yml first."
-      when: not jcl_file.stat.exists
-
-    - name: "Step 3: Display JCL content before submission"
-      command: "cat /tmp/{{ userid }}_adduser.jcl"
-      register: jcl_content
-
-    - name: "Step 4: Show JCL to be submitted"
-      debug:
-        msg: "{{ jcl_content.stdout_lines }}"
-
-    - name: "Step 5: Submit JCL job"
+    - name: "Step 1: Submit JCL job from mainframe"
       zos_job_submit:
-        src: "/tmp/{{ userid }}_adduser.jcl"
-        location: USS
+        src: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
+        location: DATA_SET
         wait_time_s: 60
       register: job_submit
       ignore_errors: true
@@ -73,12 +55,12 @@
               - "Check SDSF or z/OSMF for job status and output."
               - "Use command: OUTPUT {{ job_id }} in TSO"
 
-    - name: "Step 10: Cleanup JCL file"
-      file:
-        path: "/tmp/{{ userid }}_adduser.jcl"
+    - name: "Step 10: Cleanup JCL member (optional)"
+      zos_data_set:
+        name: "{{ target_library | default('IBMUSER.JCL') }}({{ target_member | default('NEWUSER') }})"
         state: absent
       ignore_errors: true
-      when: cleanup | default(true)
+      when: cleanup | default(false)
 
     - name: "Step 11: Final summary"
       debug:
