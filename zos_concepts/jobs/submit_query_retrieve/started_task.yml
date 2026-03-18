@@ -1,0 +1,160 @@
+---
+- name: Manage z/OS Started Tasks
+  hosts: zos_host
+  gather_facts: false
+  collections:
+    - ibm.ibm_zos_core
+
+  vars:
+    action: "{{ action | default('query') }}"
+    task_name: "{{ task_name | default('*') }}"
+    wait: "{{ wait | default(true) }}"
+    timeout: "{{ timeout | default(60) }}"
+    parms: "{{ parms | default(omit) }}"
+
+  tasks:
+    - name: Query started tasks
+      ibm.ibm_zos_core.zos_operator_action_query:
+        system: "*"
+        job_name: "{{ task_name }}"
+      register: stc_query_result
+      when: action == 'query'
+
+    - name: Display started tasks (query)
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          z/OS Started Tasks Query Results
+          ========================================
+          Total started tasks found: {{ stc_query_result.jobs | length }}
+          
+          {% for job in stc_query_result.jobs %}
+          ---
+          Task Name: {{ job.job_name }}
+          Job ID: {{ job.job_id }}
+          Owner: {{ job.owner | default('N/A') }}
+          Status: {{ job.ret_code.msg | default('ACTIVE') }}
+          {% if job.ret_code.code is defined %}
+          Return Code: {{ job.ret_code.code }}
+          {% endif %}
+          Class: {{ job.class | default('STC') }}
+          {% if job.subsystem is defined %}
+          Subsystem: {{ job.subsystem }}
+          {% endif %}
+          {% if job.program_name is defined %}
+          Program: {{ job.program_name }}
+          {% endif %}
+          {% endfor %}
+          ========================================
+      when: action == 'query' and stc_query_result.jobs is defined
+
+    - name: Start started task
+      ibm.ibm_zos_core.zos_operator:
+        cmd: "S {{ task_name }}{% if parms is defined %},{{ parms }}{% endif %}"
+        wait: "{{ wait }}"
+        wait_time_s: "{{ timeout }}"
+      register: stc_start_result
+      when: action == 'start'
+
+    - name: Display start result
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Started Task Start Result
+          ========================================
+          Task Name: {{ task_name }}
+          Command: S {{ task_name }}{% if parms is defined %},{{ parms }}{% endif %}
+          
+          Output:
+          {{ stc_start_result.content | join('\n') }}
+          ========================================
+      when: action == 'start'
+
+    - name: Stop started task
+      ibm.ibm_zos_core.zos_operator:
+        cmd: "P {{ task_name }}"
+        wait: "{{ wait }}"
+        wait_time_s: "{{ timeout }}"
+      register: stc_stop_result
+      when: action == 'stop'
+
+    - name: Display stop result
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Started Task Stop Result
+          ========================================
+          Task Name: {{ task_name }}
+          Command: P {{ task_name }}
+          
+          Output:
+          {{ stc_stop_result.content | join('\n') }}
+          ========================================
+      when: action == 'stop'
+
+    - name: Restart started task (stop first)
+      ibm.ibm_zos_core.zos_operator:
+        cmd: "P {{ task_name }}"
+        wait: true
+        wait_time_s: 30
+      register: stc_restart_stop
+      when: action == 'restart'
+
+    - name: Wait for task to stop
+      ansible.builtin.pause:
+        seconds: 5
+      when: action == 'restart'
+
+    - name: Restart started task (start again)
+      ibm.ibm_zos_core.zos_operator:
+        cmd: "S {{ task_name }}{% if parms is defined %},{{ parms }}{% endif %}"
+        wait: "{{ wait }}"
+        wait_time_s: "{{ timeout }}"
+      register: stc_restart_start
+      when: action == 'restart'
+
+    - name: Display restart result
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Started Task Restart Result
+          ========================================
+          Task Name: {{ task_name }}
+          
+          Stop Output:
+          {{ stc_restart_stop.content | join('\n') }}
+          
+          Start Output:
+          {{ stc_restart_start.content | join('\n') }}
+          ========================================
+      when: action == 'restart'
+
+    - name: Save results to file
+      ansible.builtin.copy:
+        content: |
+          {% if action == 'query' %}
+          {{ stc_query_result | to_nice_json }}
+          {% elif action == 'start' %}
+          {{ stc_start_result | to_nice_json }}
+          {% elif action == 'stop' %}
+          {{ stc_stop_result | to_nice_json }}
+          {% elif action == 'restart' %}
+          {{ {'stop': stc_restart_stop, 'start': stc_restart_start} | to_nice_json }}
+          {% endif %}
+        dest: "/tmp/stc_{{ action }}_{{ task_name }}_{{ ansible_date_time.epoch }}.json"
+      delegate_to: localhost
+
+    - name: Summary
+      ansible.builtin.debug:
+        msg: |
+          {% if action == 'query' %}
+          Query completed. Found {{ stc_query_result.jobs | length }} started task(s).
+          {% elif action == 'start' %}
+          Started task {{ task_name }} initiated successfully.
+          {% elif action == 'stop' %}
+          Started task {{ task_name }} stop command issued.
+          {% elif action == 'restart' %}
+          Started task {{ task_name }} restarted successfully.
+          {% endif %}
+
+# Made with Bob
