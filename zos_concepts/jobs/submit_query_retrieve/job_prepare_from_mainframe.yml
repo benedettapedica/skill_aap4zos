@@ -23,9 +23,10 @@
           replace('$COGNOME', cognome) |
           replace('$CODICEFISCALE', codice_fiscale) |
           replace('$GRP', gruppo) |
+          replace('$OPIDENT', opident) |
           replace('$PSW', password) |
           replace('$OWNER', owner) |
-          replace('$XX/XX/XX', data_revoke) }}"
+          replace('$XX/XX/XX', data_revoke) }}" 
 
     - name: "Step 3: Display modified JCL for review"
       debug:
