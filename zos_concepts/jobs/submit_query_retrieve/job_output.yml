@@ -9,9 +9,9 @@
   tasks:
     - name: Retrieve job output
       ibm.ibm_zos_core.zos_job_output:
-        job_name: "{{ job_name | default(*) }}"
-        job_id: "{{ job_id | default(*) }}"
-        owner: "{{ owner | default(*) }}"
+        job_name: "{{ job_name | default('*') }}"
+        job_id: "{{ job_id | default(omit) }}"
+        owner: "{{ owner | default('*') }}"
       register: job_output_result
 
     - name: Display job information
