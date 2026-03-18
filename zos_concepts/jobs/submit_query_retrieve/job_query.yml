@@ -1,0 +1,68 @@
+---
+- name: Query z/OS Jobs
+  hosts: zos_host
+  gather_facts: false
+  collections:
+    - ibm.ibm_zos_core
+
+  vars:
+    job_name: "{{ job_name | default('*') }}"
+    owner: "{{ owner | default('*') }}"
+    job_id: "{{ job_id | default(omit) }}"
+    status: "{{ status | default('*') }}"
+    system: "{{ system | default(omit) }}"
+    age: "{{ age | default(omit) }}"
+
+  tasks:
+    - name: Query z/OS jobs
+      ibm.ibm_zos_core.zos_job_query:
+        job_name: "{{ job_name }}"
+        owner: "{{ owner }}"
+        job_id: "{{ job_id }}"
+        status_type: "{{ status }}"
+        system: "{{ system }}"
+        age: "{{ age }}"
+      register: job_query_result
+
+    - name: Display job query results
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          z/OS Job Query Results
+          ========================================
+          Total jobs found: {{ job_query_result.jobs | length }}
+          
+          {% for job in job_query_result.jobs %}
+          ---
+          Job Name: {{ job.job_name }}
+          Job ID: {{ job.job_id }}
+          Owner: {{ job.owner }}
+          Status: {{ job.ret_code.msg | default('ACTIVE') }}
+          Return Code: {{ job.ret_code.code | default('N/A') }}
+          Class: {{ job.class | default('N/A') }}
+          {% if job.subsystem is defined %}
+          Subsystem: {{ job.subsystem }}
+          {% endif %}
+          {% if job.svc_class is defined %}
+          Service Class: {{ job.svc_class }}
+          {% endif %}
+          {% if job.priority is defined %}
+          Priority: {{ job.priority }}
+          {% endif %}
+          {% if job.program_name is defined %}
+          Program: {{ job.program_name }}
+          {% endif %}
+          {% endfor %}
+          ========================================
+
+    - name: Save results to file
+      ansible.builtin.copy:
+        content: "{{ job_query_result | to_nice_json }}"
+        dest: "/tmp/job_query_result_{{ ansible_date_time.epoch }}.json"
+      delegate_to: localhost
+
+    - name: Summary
+      ansible.builtin.debug:
+        msg: "Query completed. Found {{ job_query_result.jobs | length }} job(s) matching criteria."
+
+# Made with Bob
