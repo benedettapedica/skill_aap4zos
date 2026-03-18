@@ -5,20 +5,13 @@
   collections:
     - ibm.ibm_zos_core
 
-  vars:
-    action: "{{ action | default('query') }}"
-    task_name: "{{ task_name | default('*') }}"
-    wait: "{{ wait | default(true) }}"
-    timeout: "{{ timeout | default(60) }}"
-    parms: "{{ parms | default(omit) }}"
-
   tasks:
     - name: Query started tasks
       ibm.ibm_zos_core.zos_operator_action_query:
         system: "*"
-        job_name: "{{ task_name }}"
+        job_name: "{{ task_name | default('*') }}"
       register: stc_query_result
-      when: action == 'query'
+      when: (action | default('query')) == 'query'
 
     - name: Display started tasks (query)
       ansible.builtin.debug:
@@ -46,15 +39,15 @@
           {% endif %}
           {% endfor %}
           ========================================
-      when: action == 'query' and stc_query_result.jobs is defined
+      when: (action | default('query')) == 'query' and stc_query_result.jobs is defined
 
     - name: Start started task
       ibm.ibm_zos_core.zos_operator:
         cmd: "S {{ task_name }}{% if parms is defined %},{{ parms }}{% endif %}"
-        wait: "{{ wait }}"
-        wait_time_s: "{{ timeout }}"
+        wait: "{{ wait | default(true) }}"
+        wait_time_s: "{{ timeout | default(60) }}"
       register: stc_start_result
-      when: action == 'start'
+      when: (action | default('query')) == 'start'
 
     - name: Display start result
       ansible.builtin.debug:
@@ -68,15 +61,15 @@
           Output:
           {{ stc_start_result.content | join('\n') }}
           ========================================
-      when: action == 'start'
+      when: (action | default('query')) == 'start'
 
     - name: Stop started task
       ibm.ibm_zos_core.zos_operator:
         cmd: "P {{ task_name }}"
-        wait: "{{ wait }}"
-        wait_time_s: "{{ timeout }}"
+        wait: "{{ wait | default(true) }}"
+        wait_time_s: "{{ timeout | default(60) }}"
       register: stc_stop_result
-      when: action == 'stop'
+      when: (action | default('query')) == 'stop'
 
     - name: Display stop result
       ansible.builtin.debug:
@@ -90,7 +83,7 @@
           Output:
           {{ stc_stop_result.content | join('\n') }}
           ========================================
-      when: action == 'stop'
+      when: (action | default('query')) == 'stop'
 
     - name: Restart started task (stop first)
       ibm.ibm_zos_core.zos_operator:
@@ -98,20 +91,20 @@
         wait: true
         wait_time_s: 30
       register: stc_restart_stop
-      when: action == 'restart'
+      when: (action | default('query')) == 'restart'
 
     - name: Wait for task to stop
       ansible.builtin.pause:
         seconds: 5
-      when: action == 'restart'
+      when: (action | default('query')) == 'restart'
 
     - name: Restart started task (start again)
       ibm.ibm_zos_core.zos_operator:
         cmd: "S {{ task_name }}{% if parms is defined %},{{ parms }}{% endif %}"
-        wait: "{{ wait }}"
-        wait_time_s: "{{ timeout }}"
+        wait: "{{ wait | default(true) }}"
+        wait_time_s: "{{ timeout | default(60) }}"
       register: stc_restart_start
-      when: action == 'restart'
+      when: (action | default('query')) == 'restart'
 
     - name: Display restart result
       ansible.builtin.debug:
@@ -127,33 +120,33 @@
           Start Output:
           {{ stc_restart_start.content | join('\n') }}
           ========================================
-      when: action == 'restart'
+      when: (action | default('query')) == 'restart'
 
     - name: Save results to file
       ansible.builtin.copy:
         content: |
-          {% if action == 'query' %}
+          {% if (action | default('query')) == 'query' %}
           {{ stc_query_result | to_nice_json }}
-          {% elif action == 'start' %}
+          {% elif (action | default('query')) == 'start' %}
           {{ stc_start_result | to_nice_json }}
-          {% elif action == 'stop' %}
+          {% elif (action | default('query')) == 'stop' %}
           {{ stc_stop_result | to_nice_json }}
-          {% elif action == 'restart' %}
+          {% elif (action | default('query')) == 'restart' %}
           {{ {'stop': stc_restart_stop, 'start': stc_restart_start} | to_nice_json }}
           {% endif %}
-        dest: "/tmp/stc_{{ action }}_{{ task_name }}_{{ ansible_date_time.epoch }}.json"
+        dest: "/tmp/stc_{{ action | default('query') }}_{{ task_name | default('all') }}_{{ ansible_date_time.epoch }}.json"
       delegate_to: localhost
 
     - name: Summary
       ansible.builtin.debug:
         msg: |
-          {% if action == 'query' %}
+          {% if (action | default('query')) == 'query' %}
           Query completed. Found {{ stc_query_result.jobs | length }} started task(s).
-          {% elif action == 'start' %}
+          {% elif (action | default('query')) == 'start' %}
           Started task {{ task_name }} initiated successfully.
-          {% elif action == 'stop' %}
+          {% elif (action | default('query')) == 'stop' %}
           Started task {{ task_name }} stop command issued.
-          {% elif action == 'restart' %}
+          {% elif (action | default('query')) == 'restart' %}
           Started task {{ task_name }} restarted successfully.
           {% endif %}
 
