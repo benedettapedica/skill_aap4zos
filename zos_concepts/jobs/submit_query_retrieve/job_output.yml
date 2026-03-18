@@ -5,13 +5,6 @@
   collections:
     - ibm.ibm_zos_core
 
-  vars:
-    job_name: "{{ job_name | default(omit) }}"
-    job_id: "{{ job_id | default(omit) }}"
-    owner: "{{ owner | default(omit) }}"
-    ddname: "{{ ddname | default(omit) }}"
-    max_rc: "{{ max_rc | default(0) }}"
-
   tasks:
     - name: Validate input parameters
       ansible.builtin.assert:
@@ -21,10 +14,10 @@
 
     - name: Retrieve job output
       ibm.ibm_zos_core.zos_job_output:
-        job_name: "{{ job_name }}"
-        job_id: "{{ job_id }}"
-        owner: "{{ owner }}"
-        ddname: "{{ ddname }}"
+        job_name: "{{ job_name | default(omit) }}"
+        job_id: "{{ job_id | default(omit) }}"
+        owner: "{{ owner | default(omit) }}"
+        ddname: "{{ ddname | default(omit) }}"
       register: job_output_result
 
     - name: Display job information
@@ -75,7 +68,7 @@
         - job_output_result.jobs is defined
         - job_output_result.jobs | length > 0
         - job_output_result.jobs[0].ret_code.code is defined
-        - job_output_result.jobs[0].ret_code.code | int > max_rc | int
+        - job_output_result.jobs[0].ret_code.code | int > (max_rc | default(0) | int)
 
     - name: Summary
       ansible.builtin.debug:
