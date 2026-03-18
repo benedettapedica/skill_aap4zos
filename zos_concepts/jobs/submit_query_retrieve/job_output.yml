@@ -5,70 +5,79 @@
     - ibm.ibm_zos_core
   gather_facts: false
   environment: "{{ environment_vars }}"
-
+  
   tasks:
-    - name: Retrieve job output
-      ibm.ibm_zos_core.zos_job_output:
+    # Check if wildcards are used (*, ?)
+    - name: Set wildcard flag
+      set_fact:
+        has_wildcards: "{{ (job_name is defined and ('*' in job_name or '?' in job_name)) or (job_id is defined and ('*' in job_id or '?' in job_id)) }}"
+    
+    # Path 1: Wildcards detected - Query first, then get output for each job
+    - name: Query jobs when wildcards are used
+      ibm.ibm_zos_core.zos_job_query:
         job_name: "{{ job_name | default('*') }}"
-        job_id: "{{ job_id | default(omit) }}"
         owner: "{{ owner | default('*') }}"
-      register: job_output_result
-
-    - name: Display job information
-      ansible.builtin.debug:
-        msg: |
-          ========================================
-          z/OS Job Output
-          ========================================
-          Job Name: {{ job_output_result.jobs[0].job_name }}
-          Job ID: {{ job_output_result.jobs[0].job_id }}
-          Owner: {{ job_output_result.jobs[0].owner }}
-          Return Code: {{ job_output_result.jobs[0].ret_code.code | default('N/A') }}
-          Status: {{ job_output_result.jobs[0].ret_code.msg | default('N/A') }}
-          ========================================
-
-    - name: Display DD output
-      ansible.builtin.debug:
-        msg: |
-          
-          ========================================
-          DD Name: {{ item.ddname }}
-          Step Name: {{ item.stepname | default('N/A') }}
-          Proc Step: {{ item.procstep | default('N/A') }}
-          Record Count: {{ item.record_count | default(0) }}
-          ========================================
-          
-          {{ item.content | join('\n') }}
-          
-      loop: "{{ job_output_result.jobs[0].ddnames }}"
-      when: 
-        - job_output_result.jobs is defined
-        - job_output_result.jobs | length > 0
-        - job_output_result.jobs[0].ddnames is defined
-
-    - name: Save complete output to file
-      ansible.builtin.copy:
-        content: "{{ job_output_result | to_nice_json }}"
-        dest: "/tmp/job_output_{{ job_output_result.jobs[0].job_name }}_{{ job_output_result.jobs[0].job_id }}.json"
+        job_id: "{{ job_id | default(omit) }}"
+      register: job_list
+      when: has_wildcards | bool
+      
+    - name: Retrieve output for each job found
+      ibm.ibm_zos_core.zos_job_output:
+        job_name: "{{ item.job_name }}"
+        job_id: "{{ item.job_id }}"
+      loop: "{{ job_list.jobs }}"
+      register: multiple_outputs
+      when: has_wildcards | bool and job_list.jobs | length > 0
+      
+    - name: Save multiple outputs to file
+      copy:
+        content: "{{ multiple_outputs | to_nice_json }}"
+        dest: "/tmp/job_outputs_{{ lookup('pipe', 'date +%s') }}.json"
       delegate_to: localhost
-      when: 
-        - job_output_result.jobs is defined
-        - job_output_result.jobs | length > 0
-
-    - name: Check return code
-      ansible.builtin.fail:
-        msg: "Job failed with return code {{ job_output_result.jobs[0].ret_code.code }}"
-      when:
-        - job_output_result.jobs is defined
-        - job_output_result.jobs | length > 0
-        - job_output_result.jobs[0].ret_code.code is defined
-        - job_output_result.jobs[0].ret_code.code | int > (max_rc | default(0) | int)
-
-    - name: Summary
-      ansible.builtin.debug:
-        msg: "Job output retrieved successfully. Total DD names: {{ job_output_result.jobs[0].ddnames | length }}"
-      when: 
-        - job_output_result.jobs is defined
-        - job_output_result.jobs | length > 0
+      when: has_wildcards | bool and multiple_outputs is defined
+      
+    - name: Summary for multiple jobs
+      debug:
+        msg: "Retrieved output for {{ multiple_outputs.results | length }} jobs"
+      when: has_wildcards | bool and multiple_outputs is defined
+    
+    # Path 2: No wildcards - Direct output retrieval for specific job
+    - name: Retrieve output by job_name and owner
+      ibm.ibm_zos_core.zos_job_output:
+        job_name: "{{ job_name }}"
+        owner: "{{ owner }}"
+      register: single_output
+      when: not (has_wildcards | bool) and job_name is defined and job_name != '' and owner is defined and owner != ''
+      
+    - name: Retrieve output by job_name only
+      ibm.ibm_zos_core.zos_job_output:
+        job_name: "{{ job_name }}"
+      register: single_output
+      when: not (has_wildcards | bool) and job_name is defined and job_name != '' and (owner is not defined or owner == '')
+      
+    - name: Retrieve output by job_id and owner
+      ibm.ibm_zos_core.zos_job_output:
+        job_id: "{{ job_id }}"
+        owner: "{{ owner }}"
+      register: single_output
+      when: not (has_wildcards | bool) and job_id is defined and job_id != '' and owner is defined and owner != '' and (job_name is not defined or job_name == '')
+      
+    - name: Retrieve output by job_id only
+      ibm.ibm_zos_core.zos_job_output:
+        job_id: "{{ job_id }}"
+      register: single_output
+      when: not (has_wildcards | bool) and job_id is defined and job_id != '' and (owner is not defined or owner == '') and (job_name is not defined or job_name == '')
+      
+    - name: Save single output to file
+      copy:
+        content: "{{ single_output | to_nice_json }}"
+        dest: "/tmp/job_output_{{ lookup('pipe', 'date +%s') }}.json"
+      delegate_to: localhost
+      when: not (has_wildcards | bool) and single_output is defined
+      
+    - name: Summary for single job
+      debug:
+        msg: "Job output retrieved successfully. Total DD names: {{ single_output.jobs[0].ddnames | length }}"
+      when: not (has_wildcards | bool) and single_output is defined
 
 # Made with Bob
