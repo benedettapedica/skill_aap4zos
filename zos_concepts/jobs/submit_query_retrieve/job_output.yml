@@ -1,9 +1,10 @@
 ---
 - name: Retrieve z/OS Job Output
   hosts: zos_host
-  gather_facts: false
   collections:
     - ibm.ibm_zos_core
+  gather_facts: false
+  environment: "{{ environment_vars }}"
 
   tasks:
     - name: Validate input parameters
