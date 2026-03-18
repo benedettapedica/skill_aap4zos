@@ -7,24 +7,11 @@
   environment: "{{ environment_vars }}"
 
   tasks:
-    - name: Validate input parameters
-      ansible.builtin.assert:
-        that:
-          - job_name is defined or job_id is defined
-        fail_msg: "Either job_name or job_id must be specified"
-
-    - name: Build job output parameters
-      ansible.builtin.set_fact:
-        job_output_params: "{{ job_output_params | default({}) | combine({item.key: item.value}) }}"
-      loop:
-        - { key: 'job_name', value: "{{ job_name }}" }
-        - { key: 'job_id', value: "{{ job_id }}" }
-        - { key: 'owner', value: "{{ owner }}" }
-        - { key: 'ddname', value: "{{ ddname }}" }
-      when: item.value is defined and item.value != ""
-
     - name: Retrieve job output
-      ibm.ibm_zos_core.zos_job_output: "{{ job_output_params }}"
+      ibm.ibm_zos_core.zos_job_output:
+        job_name: "{{ job_name | default(omit) }}"
+        job_id: "{{ job_id | default(omit) }}"
+        owner: "{{ owner | default(omit) }}"
       register: job_output_result
 
     - name: Display job information
