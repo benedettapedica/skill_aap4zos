@@ -15,8 +15,8 @@
     # Path 1: Wildcards detected - Query first, then get output for each job
     - name: Query jobs when wildcards are used
       ibm.ibm_zos_core.zos_job_query:
-        job_name: "{{ job_name | default('*') }}"
-        owner: "{{ owner | default('*') }}"
+        job_name: "{{ job_name if job_name is defined and job_name != '' else '*' }}"
+        owner: "{{ owner if owner is defined and owner != '' else '*' }}"
         job_id: "{{ job_id | default(omit) }}"
       register: job_list
       when: has_wildcards | bool
