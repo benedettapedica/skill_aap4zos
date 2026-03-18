@@ -5,23 +5,13 @@
   collections:
     - ibm.ibm_zos_core
 
-  vars:
-    job_name: "{{ job_name | default('*') }}"
-    owner: "{{ owner | default('*') }}"
-    job_id: "{{ job_id | default(omit) }}"
-    status: "{{ status | default('*') }}"
-    system: "{{ system | default(omit) }}"
-    age: "{{ age | default(omit) }}"
-
   tasks:
     - name: Query z/OS jobs
       ibm.ibm_zos_core.zos_job_query:
-        job_name: "{{ job_name }}"
-        owner: "{{ owner }}"
-        job_id: "{{ job_id }}"
-        status_type: "{{ status }}"
-        system: "{{ system }}"
-        age: "{{ age }}"
+        job_name: "{{ job_name | default('*') }}"
+        owner: "{{ owner | default('*') }}"
+        job_id: "{{ job_id | default(omit) }}"
+        status_type: "{{ status | default('*') }}"
       register: job_query_result
 
     - name: Display job query results
