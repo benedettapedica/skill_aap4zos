@@ -48,7 +48,7 @@
     - name: Save results to file
       ansible.builtin.copy:
         content: "{{ job_query_result | to_nice_json }}"
-        dest: "/tmp/job_query_result_{{ ansible_date_time.epoch }}.json"
+        dest: "/tmp/job_query_result_{{ lookup('pipe', 'date +%s') }}.json"
       delegate_to: localhost
 
     - name: Summary
