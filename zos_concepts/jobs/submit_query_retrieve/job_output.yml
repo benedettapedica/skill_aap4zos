@@ -7,77 +7,40 @@
   environment: "{{ environment_vars }}"
   
   tasks:
-    # Check if wildcards are used (*, ?)
-    - name: Set wildcard flag
-      set_fact:
-        has_wildcards: "{{ (job_name is defined and ('*' in job_name or '?' in job_name)) or (job_id is defined and ('*' in job_id or '?' in job_id)) }}"
-    
-    # Path 1: Wildcards detected - Query first, then get output for each job
-    - name: Query jobs when wildcards are used
-      ibm.ibm_zos_core.zos_job_query:
-        job_name: "{{ job_name if job_name is defined and job_name != '' and job_name != '*' else '*' }}"
-        owner: "{{ owner if owner is defined and owner != '' and owner != '*' else '*' }}"
-        job_id: "{{ omit if (job_id is not defined or job_id == '' or job_id == '*') else job_id }}"
-      register: job_list
-      when: has_wildcards | bool
-      
-    - name: Retrieve output for each job found
-      ibm.ibm_zos_core.zos_job_output:
-        job_name: "{{ item.job_name }}"
-        job_id: "{{ item.job_id }}"
-      loop: "{{ job_list.jobs }}"
-      register: multiple_outputs
-      when: has_wildcards | bool and job_list.jobs | length > 0
-      
-    - name: Save multiple outputs to file
-      copy:
-        content: "{{ multiple_outputs | to_nice_json }}"
-        dest: "/tmp/job_outputs_{{ lookup('pipe', 'date +%s') }}.json"
-      delegate_to: localhost
-      when: has_wildcards | bool and multiple_outputs is defined
-      
-    - name: Summary for multiple jobs
+    - name: Debug input parameters
       debug:
-        msg: "Retrieved output for {{ multiple_outputs.results | length }} jobs"
-      when: has_wildcards | bool and multiple_outputs is defined
+        msg:
+          - "job_id: {{ job_id }}"
+          - "job_name: {{ job_name | default('NOT PROVIDED') }}"
     
-    # Path 2: No wildcards - Direct output retrieval for specific job
-    - name: Retrieve output by job_name and owner
-      ibm.ibm_zos_core.zos_job_output:
-        job_name: "{{ job_name }}"
-        owner: "{{ owner }}"
-      register: single_output
-      when: not (has_wildcards | bool) and job_name is defined and job_name != '' and owner is defined and owner != ''
-      
-    - name: Retrieve output by job_name only
-      ibm.ibm_zos_core.zos_job_output:
-        job_name: "{{ job_name }}"
-      register: single_output
-      when: not (has_wildcards | bool) and job_name is defined and job_name != '' and (owner is not defined or owner == '')
-      
-    - name: Retrieve output by job_id and owner
+    - name: Retrieve job output by job_id and job_name
       ibm.ibm_zos_core.zos_job_output:
         job_id: "{{ job_id }}"
-        owner: "{{ owner }}"
-      register: single_output
-      when: not (has_wildcards | bool) and job_id is defined and job_id != '' and owner is defined and owner != '' and (job_name is not defined or job_name == '')
+        job_name: "{{ job_name }}"
+      register: job_output
+      when: job_name is defined and job_name != ''
       
-    - name: Retrieve output by job_id only
+    - name: Retrieve job output by job_id only
       ibm.ibm_zos_core.zos_job_output:
         job_id: "{{ job_id }}"
-      register: single_output
-      when: not (has_wildcards | bool) and job_id is defined and job_id != '' and (owner is not defined or owner == '') and (job_name is not defined or job_name == '')
+      register: job_output
+      when: job_name is not defined or job_name == ''
       
-    - name: Save single output to file
+    - name: Save output to file
       copy:
-        content: "{{ single_output | to_nice_json }}"
-        dest: "/tmp/job_output_{{ lookup('pipe', 'date +%s') }}.json"
+        content: "{{ job_output | to_nice_json }}"
+        dest: "/tmp/job_output_{{ job_id }}_{{ lookup('pipe', 'date +%s') }}.json"
       delegate_to: localhost
-      when: not (has_wildcards | bool) and single_output is defined
+      when: job_output is defined
       
-    - name: Summary for single job
+    - name: Display z/OS Job Output
       debug:
-        msg: "Job output retrieved successfully. Total DD names: {{ single_output.jobs[0].ddnames | length }}"
-      when: not (has_wildcards | bool) and single_output is defined
+        var: job_output
+      when: job_output is defined
+      
+    - name: Summary
+      debug:
+        msg: "Job output retrieved successfully for Job ID: {{ job_id }}"
+      when: job_output is defined
 
 # Made with Bob
