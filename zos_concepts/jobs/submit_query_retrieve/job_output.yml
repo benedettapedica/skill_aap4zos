@@ -7,10 +7,18 @@
   environment: "{{ environment_vars }}"
   
   tasks:
+    # Debug input parameters
+    - name: Debug input parameters
+      debug:
+        msg:
+          job_name: "{{ job_name if (job_name is defined and job_name != '' and job_name != '*') else omit }}"
+          owner: "{{ owner if (owner is defined and owner != '' and owner != '*') else omit }}"
+          job_id: "{{ job_id if (job_id is defined and job_id != '' and job_id != '*') else omit }}"
+    
     # Check if wildcards are used (*, ?)
     - name: Set wildcard flag
       set_fact:
-        has_wildcards: "{{ (job_name is defined and ('*' in job_name or '?' in job_name)) or (job_id is defined and ('*' in job_id or '?' in job_id)) }}"
+        has_wildcards: "{{ (job_name is defined and job_name != '' and ('*' in job_name or '?' in job_name)) or (job_id is defined and job_id != '' and ('*' in job_id or '?' in job_id)) }}"
     
     # Path 1: Wildcards detected - Query first, then get output for each job
     - name: Query jobs when wildcards are used
@@ -42,31 +50,17 @@
       when: has_wildcards | bool and multiple_outputs is defined
     
     # Path 2: No wildcards - Direct output retrieval for specific job
-    - name: Retrieve output by job_name and owner
-      ibm.ibm_zos_core.zos_job_output:
-        job_name: "{{ job_name }}"
-        owner: "{{ owner }}"
+    - name: Set output query parameters
+      ansible.builtin.set_fact:
+        output_params:
+          job_name: "{{ job_name if (job_name is defined and job_name != '') else omit }}"
+          job_id: "{{ job_id if (job_id is defined and job_id != '') else omit }}"
+          owner: "{{ owner if (owner is defined and owner != '') else omit }}"
+    
+    - name: Retrieve job output
+      ibm.ibm_zos_core.zos_job_output: "{{ output_params }}"
       register: single_output
-      when: not (has_wildcards | bool) and job_name is defined and job_name != '' and owner is defined and owner != ''
-      
-    - name: Retrieve output by job_name only
-      ibm.ibm_zos_core.zos_job_output:
-        job_name: "{{ job_name }}"
-      register: single_output
-      when: not (has_wildcards | bool) and job_name is defined and job_name != '' and (owner is not defined or owner == '')
-      
-    - name: Retrieve output by job_id and owner
-      ibm.ibm_zos_core.zos_job_output:
-        job_id: "{{ job_id }}"
-        owner: "{{ owner }}"
-      register: single_output
-      when: not (has_wildcards | bool) and job_id is defined and job_id != '' and owner is defined and owner != '' and (job_name is not defined or job_name == '')
-      
-    - name: Retrieve output by job_id only
-      ibm.ibm_zos_core.zos_job_output:
-        job_id: "{{ job_id }}"
-      register: single_output
-      when: not (has_wildcards | bool) and job_id is defined and job_id != '' and (owner is not defined or owner == '') and (job_name is not defined or job_name == '')
+      when: not (has_wildcards | bool)
       
     - name: Save single output to file
       copy:
@@ -75,9 +69,14 @@
       delegate_to: localhost
       when: not (has_wildcards | bool) and single_output is defined
       
+    - name: Display z/OS Job Output
+      debug:
+        var: single_output
+      when: not (has_wildcards | bool) and single_output is defined
+    
     - name: Summary for single job
       debug:
-        msg: "Job output retrieved successfully. Total DD names: {{ single_output.jobs[0].ddnames | length if single_output.jobs is defined and single_output.jobs | length > 0 else 'N/A' }}"
-      when: not (has_wildcards | bool) and single_output is defined and single_output.jobs is defined
+        msg: "Job output retrieved successfully for {{ single_output.jobs[0].job_name if single_output.jobs is defined and single_output.jobs | length > 0 else 'N/A' }}"
+      when: not (has_wildcards | bool) and single_output is defined
 
 # Made with Bob
