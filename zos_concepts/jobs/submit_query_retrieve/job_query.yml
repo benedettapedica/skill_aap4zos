@@ -7,12 +7,16 @@
   environment: "{{ environment_vars }}"
 
   tasks:
+    - name: Set query parameters
+      ansible.builtin.set_fact:
+        query_params:
+          job_name: "{{ job_name if (job_name is defined and job_name != '' and job_name != '*') else omit }}"
+          owner: "{{ owner if (owner is defined and owner != '' and owner != '*') else omit }}"
+          job_id: "{{ job_id if (job_id is defined and job_id != '' and job_id != '*') else omit }}"
+          status_type: "{{ status_type if (status_type is defined and status_type != '' and status_type != 'all') else omit }}"
+
     - name: Query z/OS jobs
-      ibm.ibm_zos_core.zos_job_query:
-        job_name: "{{ job_name if (job_name is defined and job_name != '') else '*' }}"
-        owner: "{{ owner if (owner is defined and owner != '') else '*' }}"
-        job_id: "{{ job_id if (job_id is defined and job_id != '') else omit }}"
-        status_type: "{{ status_type if (status_type is defined and status_type != '') else 'all' }}"
+      ibm.ibm_zos_core.zos_job_query: "{{ query_params }}"
       register: job_query_result
 
     - name: Display job query results
