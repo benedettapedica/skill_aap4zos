@@ -9,9 +9,10 @@
   tasks:
     - name: Query z/OS jobs
       ibm.ibm_zos_core.zos_job_query:
-        job_name: "{{ job_name | default('*') }}"
-        owner: "{{ owner | default('*') }}"
-        job_id: "{{ job_id | default(omit) }}"
+        job_name: "{{ job_name if (job_name is defined and job_name != '') else '*' }}"
+        owner: "{{ owner if (owner is defined and owner != '') else '*' }}"
+        job_id: "{{ job_id if (job_id is defined and job_id != '') else omit }}"
+        status_type: "{{ status_type if (status_type is defined and status_type != '') else 'all' }}"
       register: job_query_result
 
     - name: Display job query results
