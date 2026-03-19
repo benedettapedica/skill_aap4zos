@@ -13,18 +13,11 @@
           - "job_id: {{ job_id }}"
           - "job_name: {{ job_name | default('NOT PROVIDED') }}"
     
-    - name: Retrieve job output by job_id and job_name
+    - name: Retrieve job output
       ibm.ibm_zos_core.zos_job_output:
         job_id: "{{ job_id }}"
-        job_name: "{{ job_name }}"
+        job_name: "{{ job_name if (job_name is defined and job_name != '') else omit }}"
       register: job_output
-      when: job_name is defined and job_name != ''
-      
-    - name: Retrieve job output by job_id only
-      ibm.ibm_zos_core.zos_job_output:
-        job_id: "{{ job_id }}"
-      register: job_output
-      when: job_name is not defined or job_name == ''
       
     - name: Save output to file
       copy:
