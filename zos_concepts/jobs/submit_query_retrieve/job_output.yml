@@ -11,9 +11,9 @@
     - name: Debug input parameters
       debug:
         msg:
-          job_name: "{{ job_name if (job_name is defined and job_name != '' and job_name != '*') else omit }}"
-          owner: "{{ owner if (owner is defined and owner != '' and owner != '*') else omit }}"
-          job_id: "{{ job_id if (job_id is defined and job_id != '' and job_id != '*') else omit }}"
+          - "job_name: {{ job_name | default('NOT DEFINED') }}"
+          - "job_id: {{ job_id | default('NOT DEFINED') }}"
+          - "owner: {{ owner | default('NOT DEFINED') }}"
     
     # Check if wildcards are used (*, ?)
     - name: Set wildcard flag
