@@ -1,0 +1,195 @@
+---
+- name: Execute LDAP Operations
+  hosts: localhost
+  gather_facts: false
+  
+  tasks:
+    - name: Debug input parameters
+      debug:
+        msg:
+          - "LDAP Server: {{ ldap_server | default('ldapsvil.gr-u.it') }}"
+          - "LDAP Port: {{ ldap_port | default(389) }}"
+          - "Operation: {{ ldap_operation | default('search') }}"
+          - "Base DN: {{ ldap_base_dn | default('') }}"
+
+    - name: Execute LDAP Search
+      shell: |
+        ldapsearch -x -H ldap://{{ ldap_server | default('ldapsvil.gr-u.it') }}:{{ ldap_port | default(389) }} \
+          {% if ldap_bind_dn is defined and ldap_bind_dn != '' %}-D "{{ ldap_bind_dn }}" -w "{{ ldap_bind_password }}" {% endif %}\
+          -b "{{ ldap_base_dn }}" \
+          -s {{ ldap_scope | default('sub') }} \
+          "{{ ldap_filter | default('(objectClass=*)') }}" \
+          {{ ldap_attributes | default('*') }}
+      register: ldap_search_result
+      changed_when: false
+      when: (ldap_operation | default('search')) == 'search'
+
+    - name: Display LDAP Search Results
+      debug:
+        msg: |
+          ==========================================
+          LDAP Search Results
+          ==========================================
+          Server: {{ ldap_server | default('ldapsvil.gr-u.it') }}
+          Base DN: {{ ldap_base_dn }}
+          Filter: {{ ldap_filter | default('(objectClass=*)') }}
+          
+          Results:
+          {{ ldap_search_result.stdout }}
+          ==========================================
+      when: (ldap_operation | default('search')) == 'search'
+
+    - name: Create LDIF file for add operation
+      copy:
+        content: "{{ ldif_content }}"
+        dest: "/tmp/ldap_add_{{ lookup('pipe', 'date +%s') }}.ldif"
+      when: (ldap_operation | default('search')) == 'add'
+      register: ldif_file
+
+    - name: Execute LDAP Add (Create Group/User)
+      shell: |
+        ldapadd -x -H ldap://{{ ldap_server | default('ldapsvil.gr-u.it') }}:{{ ldap_port | default(389) }} \
+          -D "{{ ldap_bind_dn }}" -w "{{ ldap_bind_password }}" \
+          -f {{ ldif_file.dest }}
+      register: ldap_add_result
+      when: (ldap_operation | default('search')) == 'add'
+
+    - name: Display LDAP Add Results
+      debug:
+        msg: |
+          ==========================================
+          LDAP Add Results
+          ==========================================
+          Server: {{ ldap_server | default('ldapsvil.gr-u.it') }}
+          
+          Output:
+          {{ ldap_add_result.stdout }}
+          
+          {% if ldap_add_result.stderr %}
+          Errors:
+          {{ ldap_add_result.stderr }}
+          {% endif %}
+          ==========================================
+      when: (ldap_operation | default('search')) == 'add'
+
+    - name: Cleanup LDIF file
+      file:
+        path: "{{ ldif_file.dest }}"
+        state: absent
+      when: (ldap_operation | default('search')) == 'add' and ldif_file is defined
+
+    - name: Create LDIF file for modify operation
+      copy:
+        content: "{{ ldif_content }}"
+        dest: "/tmp/ldap_modify_{{ lookup('pipe', 'date +%s') }}.ldif"
+      when: (ldap_operation | default('search')) == 'modify'
+      register: ldif_modify_file
+
+    - name: Execute LDAP Modify
+      shell: |
+        ldapmodify -x -H ldap://{{ ldap_server | default('ldapsvil.gr-u.it') }}:{{ ldap_port | default(389) }} \
+          -D "{{ ldap_bind_dn }}" -w "{{ ldap_bind_password }}" \
+          -f {{ ldif_modify_file.dest }}
+      register: ldap_modify_result
+      when: (ldap_operation | default('search')) == 'modify'
+
+    - name: Display LDAP Modify Results
+      debug:
+        msg: |
+          ==========================================
+          LDAP Modify Results
+          ==========================================
+          Server: {{ ldap_server | default('ldapsvil.gr-u.it') }}
+          
+          Output:
+          {{ ldap_modify_result.stdout }}
+          
+          {% if ldap_modify_result.stderr %}
+          Errors:
+          {{ ldap_modify_result.stderr }}
+          {% endif %}
+          ==========================================
+      when: (ldap_operation | default('search')) == 'modify'
+
+    - name: Cleanup modify LDIF file
+      file:
+        path: "{{ ldif_modify_file.dest }}"
+        state: absent
+      when: (ldap_operation | default('search')) == 'modify' and ldif_modify_file is defined
+
+    - name: Execute LDAP Delete
+      shell: |
+        ldapdelete -x -H ldap://{{ ldap_server | default('ldapsvil.gr-u.it') }}:{{ ldap_port | default(389) }} \
+          -D "{{ ldap_bind_dn }}" -w "{{ ldap_bind_password }}" \
+          "{{ entry_dn }}"
+      register: ldap_delete_result
+      when: (ldap_operation | default('search')) == 'delete'
+
+    - name: Display LDAP Delete Results
+      debug:
+        msg: |
+          ==========================================
+          LDAP Delete Results
+          ==========================================
+          Server: {{ ldap_server | default('ldapsvil.gr-u.it') }}
+          Entry DN: {{ entry_dn }}
+          
+          Output:
+          {{ ldap_delete_result.stdout }}
+          
+          {% if ldap_delete_result.stderr %}
+          Errors:
+          {{ ldap_delete_result.stderr }}
+          {% endif %}
+          ==========================================
+      when: (ldap_operation | default('search')) == 'delete'
+
+    - name: Execute LDAP Password Reset
+      shell: |
+        ldappasswd -x -H ldap://{{ ldap_server | default('ldapclienti-form.servizi.gr-u.it') }}:{{ ldap_port | default(389) }} \
+          -D "{{ ldap_bind_dn }}" -w "{{ ldap_bind_password }}" \
+          -s "{{ new_password }}" \
+          "{{ user_dn }}"
+      register: ldap_passwd_result
+      no_log: true
+      when: (ldap_operation | default('search')) == 'passwd'
+
+    - name: Display LDAP Password Reset Results
+      debug:
+        msg: |
+          ==========================================
+          LDAP Password Reset Results
+          ==========================================
+          Server: {{ ldap_server | default('ldapclienti-form.servizi.gr-u.it') }}
+          User DN: {{ user_dn }}
+          
+          Password reset completed successfully
+          ==========================================
+      when: (ldap_operation | default('search')) == 'passwd'
+
+    - name: Save results to file
+      copy:
+        content: |
+          {% if (ldap_operation | default('search')) == 'search' %}
+          {{ ldap_search_result | to_nice_json }}
+          {% elif (ldap_operation | default('search')) == 'add' %}
+          {{ ldap_add_result | to_nice_json }}
+          {% elif (ldap_operation | default('search')) == 'modify' %}
+          {{ ldap_modify_result | to_nice_json }}
+          {% elif (ldap_operation | default('search')) == 'delete' %}
+          {{ ldap_delete_result | to_nice_json }}
+          {% elif (ldap_operation | default('search')) == 'passwd' %}
+          {{ {'status': 'success', 'user_dn': user_dn} | to_nice_json }}
+          {% endif %}
+        dest: "/tmp/ldap_{{ ldap_operation | default('search') }}_{{ lookup('pipe', 'date +%s') }}.json"
+
+    - name: Summary
+      debug:
+        msg: |
+          ==========================================
+          LDAP Operation Summary
+          ==========================================
+          Operation: {{ ldap_operation | default('search') }}
+          Server: {{ ldap_server | default('ldapsvil.gr-u.it') }}:{{ ldap_port | default(389) }}
+          Status: Completed
+          ==========================================
